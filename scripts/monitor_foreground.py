@@ -30,9 +30,9 @@ def adb(serial, *args):
 def parse_foreground_package(output):
     """Parse package names from common Android window/activity dump formats."""
     patterns = (
-        r"mCurrentFocus=Window\\{[^}]*?\\s([\\w.]+)/",
-        r"mFocusedApp=ActivityRecord\\{[^}]*?\\s([\\w.]+)/",
-        r"(?:topResumedActivity|mResumedActivity)=ActivityRecord\\{[^}]*?\\s(?:u\\d+\\s+)?([\\w.]+)/",
+        r"mCurrentFocus=Window\{[^}]*?\s([\w.]+)/",
+        r"mFocusedApp=ActivityRecord\{[^}]*?\s([\w.]+)/",
+        r"(?:topResumedActivity|mResumedActivity)=ActivityRecord\{[^}]*?\s(?:u\d+\s+)?([\w.]+)/",
     )
     for pattern in patterns:
         match = re.search(pattern, output)
@@ -48,6 +48,7 @@ def foreground_package(serial):
         return package
     activity_output = adb(serial, "shell", "dumpsys", "activity", "activities")
     return parse_foreground_package(activity_output)
+
 
 def choose_device(requested):
     output = subprocess.run(["adb", "devices"], capture_output=True, text=True, check=True).stdout
