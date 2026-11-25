@@ -80,3 +80,24 @@ Screenshots are stored under data/sessions/; SQLite metadata is stored in data/a
 - The event importer accepts backend-exported events; a production backend/API integration is not included yet.
 - No app-specific OCR or extraction of third-party personal activity is included.
 - Screenshots may contain personal information. Keep them local, restrict access, and delete them when testing is complete.
+
+## Foreground session monitoring
+
+For an authorized QA session, you can record when the configured app becomes or stops being the emulator's foreground app. This stores only timestamps, package names, and a foreground boolean; it does not read screen contents, notifications, contacts, call state, or private activity indicators.
+
+Start monitoring (from the repository root):
+
+    python3 scripts/monitor_foreground.py --confirm-authorized-test-session
+
+Optional flags:
+
+    python3 scripts/monitor_foreground.py --confirm-authorized-test-session --interval 3
+    python3 scripts/monitor_foreground.py --confirm-authorized-test-session --duration 300
+    python3 scripts/monitor_foreground.py --confirm-authorized-test-session --serial emulator-5554
+
+Generate a report:
+
+    python3 scripts/session_report.py
+    python3 scripts/session_report.py --session 20261125_153000
+
+The report shows foreground state transitions. It does not claim that a person is online/offline in the target service, and transition counts are not exact usage durations.
