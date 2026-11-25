@@ -29,9 +29,9 @@ def run_adb(serial, *args, binary=False):
 
 def parse_foreground_package(output):
     patterns = (
-        r"mCurrentFocus=Window\\{[^}]*?\\s([\\w.]+)/",
-        r"mFocusedApp=ActivityRecord\\{[^}]*?\\s([\\w.]+)/",
-        r"(?:topResumedActivity|mResumedActivity)=ActivityRecord\\{[^}]*?\\s(?:u\\d+\\s+)?([\\w.]+)/",
+        r"mCurrentFocus=Window\{[^}]*?\s([\w.]+)/",
+        r"mFocusedApp=ActivityRecord\{[^}]*?\s([\w.]+)/",
+        r"(?:topResumedActivity|mResumedActivity)=ActivityRecord\{[^}]*?\s(?:u\d+\s+)?([\w.]+)/",
     )
     for pattern in patterns:
         match = re.search(pattern, output)
@@ -47,6 +47,7 @@ def foreground_package(serial):
         return package
     activity_output = run_adb(serial, "shell", "dumpsys", "activity", "activities")
     return parse_foreground_package(activity_output)
+
 
 def main():
     config = load_config()
