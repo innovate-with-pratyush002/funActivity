@@ -1,0 +1,5 @@
+{
+  "target_app_name": "Truecaller (example only)",
+  "target_package": "com.truecaller",
+  "capture_interval_seconds": 5
+}
