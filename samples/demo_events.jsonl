@@ -1,0 +1,4 @@
+{"event_at":"2026-11-25T10:00:00+05:30","event_type":"online","subject_ref":"demo-user-001","consent_record_id":"demo-consent-001","consent_granted":true}
+{"event_at":"2026-11-25T10:12:00+05:30","event_type":"call_started","subject_ref":"demo-user-001","consent_record_id":"demo-consent-001","consent_granted":true}
+{"event_at":"2026-11-25T10:18:00+05:30","event_type":"call_ended","subject_ref":"demo-user-001","consent_record_id":"demo-consent-001","consent_granted":true}
+{"event_at":"2026-11-25T10:30:00+05:30","event_type":"offline","subject_ref":"demo-user-001","consent_record_id":"demo-consent-001","consent_granted":true}
