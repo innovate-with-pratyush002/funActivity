@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Import first-party activity events exported by an app backend for opted-in testers.
-
-Input is newline-delimited JSON (JSONL). This tool does not scrape screens,
-read notifications, or infer another app's private activity.
-"""
+"""Import consented first-party JSONL events into SQLite idempotently."""
 import argparse
 import datetime as dt
+import hashlib
 import json
 import sqlite3
 import sys
@@ -25,10 +22,43 @@ def parse_timestamp(value):
     return parsed.isoformat(timespec="seconds")
 
 
+def event_fingerprint(event_at, event_type, subject_ref, consent_ref, source_app):
+    stable = "\\x1f".join((event_at, event_type, subject_ref, consent_ref, source_app))
+    return hashlib.sha256(stable.encode("utf-8")).hexdigest()
+
+
+def ensure_schema(db):
+    db.execute("""CREATE TABLE IF NOT EXISTS consented_activity_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_at TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        subject_ref TEXT NOT NULL,
+        consent_record_id TEXT NOT NULL,
+        source_app TEXT NOT NULL,
+        imported_at TEXT NOT NULL,
+        event_key TEXT
+    )""")
+    columns = {row[1] for row in db.execute("PRAGMA table_info(consented_activity_events)")}
+    if "event_key" not in columns:
+        db.execute("ALTER TABLE consented_activity_events ADD COLUMN event_key TEXT")
+
+    # Backfill older rows and remove duplicates created by earlier non-idempotent imports.
+    rows = db.execute("""SELECT id,event_at,event_type,subject_ref,consent_record_id,source_app
+                         FROM consented_activity_events WHERE event_key IS NULL""").fetchall()
+    for row in rows:
+        key = event_fingerprint(*row[1:])
+        db.execute("UPDATE consented_activity_events SET event_key=? WHERE id=?", (key, row[0]))
+    db.execute("""DELETE FROM consented_activity_events
+                  WHERE id NOT IN (
+                    SELECT MIN(id) FROM consented_activity_events GROUP BY event_key
+                  )""")
+    db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_event_key ON consented_activity_events(event_key)")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("jsonl_file", help="JSONL export from your own app's backend")
-    parser.add_argument("--source-app", required=True, help="Your app identifier/name")
+    parser.add_argument("jsonl_file", help="JSONL export from an authorized first-party source")
+    parser.add_argument("--source-app", required=True, help="Source app identifier/name")
     args = parser.parse_args()
 
     source = Path(args.jsonl_file)
@@ -36,20 +66,9 @@ def main():
         parser.error(f"Input file not found: {source}")
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    imported = 0
-    rejected = 0
-
+    imported = rejected = duplicates = 0
     with sqlite3.connect(DB_PATH) as db:
-        db.execute("""CREATE TABLE IF NOT EXISTS consented_activity_events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            event_at TEXT NOT NULL,
-            event_type TEXT NOT NULL,
-            subject_ref TEXT NOT NULL,
-            consent_record_id TEXT NOT NULL,
-            source_app TEXT NOT NULL,
-            imported_at TEXT NOT NULL
-        )""")
-
+        ensure_schema(db)
         with source.open("r", encoding="utf-8") as handle:
             for line_number, line in enumerate(handle, start=1):
                 if not line.strip():
@@ -73,20 +92,25 @@ def main():
                     if not isinstance(consent_ref, str) or not consent_ref.strip():
                         raise ValueError("consent_record_id must be a non-empty reference")
                     event_at = parse_timestamp(event["event_at"])
+                    key = event_fingerprint(event_at, event_type, subject_ref, consent_ref, args.source_app)
                     imported_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-                    db.execute(
-                        """INSERT INTO consented_activity_events
-                        (event_at,event_type,subject_ref,consent_record_id,source_app,imported_at)
-                        VALUES(?,?,?,?,?,?)""",
-                        (event_at, event_type, subject_ref, consent_ref, args.source_app, imported_at),
+                    cursor = db.execute(
+                        """INSERT OR IGNORE INTO consented_activity_events
+                        (event_at,event_type,subject_ref,consent_record_id,source_app,imported_at,event_key)
+                        VALUES(?,?,?,?,?,?,?)""",
+                        (event_at, event_type, subject_ref, consent_ref, args.source_app, imported_at, key),
                     )
-                    imported += 1
-                except (json.JSONDecodeError, ValueError, KeyError) as exc:
+                    if cursor.rowcount:
+                        imported += 1
+                    else:
+                        duplicates += 1
+                except (json.JSONDecodeError, ValueError, KeyError, TypeError) as exc:
                     rejected += 1
                     print(f"Line {line_number}: rejected: {exc}", file=sys.stderr)
         db.commit()
 
     print(f"Imported: {imported}")
+    print(f"Duplicates skipped: {duplicates}")
     print(f"Rejected: {rejected}")
     print(f"Database: {DB_PATH}")
     return 0 if rejected == 0 else 2
