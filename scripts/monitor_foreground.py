@@ -27,11 +27,12 @@ def adb(serial, *args):
     return result.stdout
 
 
-def foreground_package(serial):
-    output = adb(serial, "shell", "dumpsys", "window", "windows")
+def parse_foreground_package(output):
+    """Parse package names from common Android window/activity dump formats."""
     patterns = (
-        r"mCurrentFocus=Window\{[^}]*\s([\w.]+)/",
-        r"mFocusedApp=ActivityRecord\{[^}]*\s([\w.]+)/",
+        r"mCurrentFocus=Window\\{[^}]*?\\s([\\w.]+)/",
+        r"mFocusedApp=ActivityRecord\\{[^}]*?\\s([\\w.]+)/",
+        r"(?:topResumedActivity|mResumedActivity)=ActivityRecord\\{[^}]*?\\s(?:u\\d+\\s+)?([\\w.]+)/",
     )
     for pattern in patterns:
         match = re.search(pattern, output)
@@ -39,6 +40,14 @@ def foreground_package(serial):
             return match.group(1)
     return "unknown"
 
+
+def foreground_package(serial):
+    window_output = adb(serial, "shell", "dumpsys", "window", "windows")
+    package = parse_foreground_package(window_output)
+    if package != "unknown":
+        return package
+    activity_output = adb(serial, "shell", "dumpsys", "activity", "activities")
+    return parse_foreground_package(activity_output)
 
 def choose_device(requested):
     output = subprocess.run(["adb", "devices"], capture_output=True, text=True, check=True).stdout
@@ -70,6 +79,9 @@ def main():
 
     try:
         serial = choose_device(args.serial)
+        installed = adb(serial, "shell", "pm", "path", args.package).strip()
+        if not installed:
+            raise RuntimeError(f"Target package {args.package!r} is not installed on {serial}. Install it later and pass its real package name.")
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         session_id = dt.datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
         with sqlite3.connect(DB_PATH) as db:
