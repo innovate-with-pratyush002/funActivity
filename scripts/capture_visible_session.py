@@ -1,12 +1,21 @@
 """Manually capture timestamped screenshots while an authorized test app is foregrounded."""
 import argparse
 import datetime as dt
+import json
 import re
 import sqlite3
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+CONFIG_PATH = Path("config") / "app.json"
+
+
+def load_config():
+    if CONFIG_PATH.exists():
+        return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    return {"target_package": "com.example.app", "capture_interval_seconds": 5}
 
 
 def run_adb(serial, *args, binary=False):
@@ -32,15 +41,20 @@ def foreground_package(serial):
 
 
 def main():
+    config = load_config()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--package", required=True, help="Exact Android package ID of your test app")
-    parser.add_argument("--interval", type=float, default=5.0, help="Seconds between screenshots (minimum 2)")
+    parser.add_argument("--package", default=config.get("target_package"),
+                        help="Target package (defaults to config/app.json)")
+    parser.add_argument("--interval", type=float, default=float(config.get("capture_interval_seconds", 5)),
+                        help="Seconds between screenshots (minimum 2)")
     parser.add_argument("--serial", help="ADB device serial; omit when exactly one device is connected")
     parser.add_argument("--confirm-authorized-test-session", action="store_true",
                         help="Confirm a transparent QA session with your own test account/explicitly consenting testers")
     args = parser.parse_args()
     if not args.confirm_authorized_test_session:
         parser.error("A transparent, authorized test session must be explicitly confirmed.")
+    if not args.package:
+        parser.error("Set target_package in config/app.json or pass --package.")
     if args.interval < 2:
         parser.error("--interval must be at least 2 seconds.")
 
@@ -72,7 +86,8 @@ def main():
         db.commit()
 
     print(f"Session {session_id} started for {args.package}.")
-    print("Keep the test app visible in the emulator. Press Ctrl+C to stop.")
+    print("Only visible screenshots are recorded while the target app is foregrounded.")
+    print("Press Ctrl+C to stop.")
     count = 0
     try:
         while True:
