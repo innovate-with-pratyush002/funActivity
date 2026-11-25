@@ -1,6 +1,7 @@
 """Print locally stored screenshot observations from the SQLite log."""
 import argparse
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 
@@ -19,7 +20,13 @@ def main():
         query += " WHERE session_id = ?"
         params = (args.session,)
     query += " ORDER BY id"
-    with sqlite3.connect(db_path) as db:
+    with closing(sqlite3.connect(db_path)) as db:
+        exists = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='captures'"
+        ).fetchone()
+        if not exists:
+            print("No screenshot captures recorded yet.")
+            return 0
         rows = db.execute(query, params).fetchall()
     if not rows:
         print("No matching captures found.")
