@@ -1,5 +1,5 @@
 {
-  "target_app_name": "Truecaller (example only)",
-  "target_package": "com.truecaller",
+  "target_app_name": "Example Android app (placeholder)",
+  "target_package": "com.example",
   "capture_interval_seconds": 5
 }
