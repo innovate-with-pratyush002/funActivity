@@ -101,3 +101,21 @@ Generate a report:
     python3 scripts/session_report.py --session 20261125_153000
 
 The report shows foreground state transitions. It does not claim that a person is online/offline in the target service, and transition counts are not exact usage durations.
+
+## Emulator preflight and offline tests
+
+Run readiness diagnostics without installing the target app:
+
+    python3 scripts/emulator_preflight.py
+
+Run the parser unit tests (no emulator or app installation required):
+
+    python3 -m unittest discover -s tests -v
+
+The preflight reports ADB readiness, Android/API version, display configuration, the currently foreground package, and installed user-app package names. It does not read app screen contents or user activity.
+
+Before a monitoring or screenshot session starts, the scripts verify that the requested target package is installed. This prevents accidental sessions against a placeholder package.
+
+## Current project boundary
+
+This repository is a local Android QA/foreground-session tool. It can verify emulator state, record when a selected test app is foregrounded, and capture visible QA screenshots when explicitly started. It is not a third-party account monitor and cannot determine other users' service presence, last-seen, or call state from the emulator.
