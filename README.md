@@ -8,7 +8,7 @@ A local, consent-based Android UI QA harness for a Google Play-enabled Android E
 - Checks whether the configured QA app package is installed.
 - Captures timestamped screenshots only while the configured app is foregrounded; capture is manually started and visible in the terminal.
 - Stores screenshot metadata locally in SQLite.
-- Imports first-party activity events from a JSONL export, requiring an explicit consent flag and a consent-record reference on every event.
+- Imports first-party activity events from a JSONL export, requiring an explicit consent flag and a consent-record reference on every event. Re-imports are idempotent: duplicates are skipped using a stable event fingerprint.
 - Displays locally imported events, optionally filtered by pseudonymous subject reference.
 - Does not upload screenshots or database records.
 
@@ -119,3 +119,7 @@ Before a monitoring or screenshot session starts, the scripts verify that the re
 ## Current project boundary
 
 This repository is a local Android QA/foreground-session tool. It can verify emulator state, record when a selected test app is foregrounded, and capture visible QA screenshots when explicitly started. It is not a third-party account monitor and cannot determine other users' service presence, last-seen, or call state from the emulator.
+
+### Import deduplication
+
+The importer now creates a stable fingerprint from event timestamp, event type, pseudonymous subject reference, consent-record reference, and source-app identifier. Re-importing the same JSONL file skips duplicates instead of adding them again. On its first run after upgrade, it also backfills fingerprints and removes legacy duplicate rows while keeping one copy of each identical event.
