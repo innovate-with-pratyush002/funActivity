@@ -1,53 +1,82 @@
 # funActivity
 
-A local, consent-based Android UI QA harness for a Google Play-enabled Android Emulator.
+A local, consent-based Android UI QA harness for a Google Play-enabled Android Emulator, plus an importer for first-party activity events exported by your own app backend.
 
-## Current milestone
+## Current capabilities
 
-- Uses a configurable target package. The current sample config names Truecaller only as an example.
-- Checks that ADB can see a ready emulator/device.
-- Captures timestamped screenshots only while the configured app is the foreground app.
-- Stores capture metadata in a local SQLite database.
-- Provides a command to inspect the local capture log.
+- Checks ADB connectivity and lists ready Android devices.
+- Checks whether the configured QA app package is installed.
+- Captures timestamped screenshots only while the configured app is foregrounded; capture is manually started and visible in the terminal.
+- Stores screenshot metadata locally in SQLite.
+- Imports first-party activity events from a JSONL export, requiring an explicit consent flag and a consent-record reference on every event.
+- Displays locally imported events, optionally filtered by pseudonymous subject reference.
 - Does not upload screenshots or database records.
 
-## Privacy boundary
+## Privacy and data boundary
 
-Use only your own test account and testers who have explicitly agreed to the QA session. Capture is manually started and visible in the terminal. This project is not a hidden monitor and does not extract or profile other people's online, last-seen, or call activity. Do not collect personal information without each affected person's specific, informed consent.
+Use only your own test account and testers who have explicitly opted in to the specific data collection. This project does not scrape another app's private UI, notifications, online/last-seen indicators, or call activity, and does not infer private activity from screenshots. Activity-event import is intended for events emitted by your own app backend under its own consent and access controls. Keep identifiers pseudonymous and avoid importing phone numbers, contact lists, or unnecessary personal data.
 
 ## Prerequisites
 
 - Ubuntu
 - Python 3.10+
 - Android SDK Platform Tools (adb)
-- An Android Virtual Device created from a Google Play system image (Play Store included)
+- An Android Virtual Device created from a Google Play system image
 
-Android Studio is optional; command-line Android SDK tools can be used.
+Android Studio is optional; Android SDK command-line tools are sufficient.
 
 ## Setup
 
 1. Start your Google Play AVD.
-2. Install the app from Play Store inside the emulator and sign in with a dedicated test account.
+2. Install your own QA build in the emulator and sign in with a dedicated test account.
 3. From the repository root, verify ADB:
 
     python3 scripts/check_adb.py
 
-4. Open config/app.json and confirm target_package. The sample value is com.truecaller.
-5. Start a manually initiated, authorized visible-screen QA session:
+4. Check the configured package in config/app.json:
+
+    python3 scripts/check_target_app.py
+
+5. Start a manually initiated, visible QA screenshot session:
 
     python3 scripts/capture_visible_session.py --confirm-authorized-test-session
 
-The default interval is 5 seconds. To override it, use --interval 10. Press Ctrl+C to stop.
+The default screenshot interval is 5 seconds. To override it, use --interval 10. Press Ctrl+C to stop.
 
-## View captured records
+## First-party event import
+
+Your own app backend can export one JSON object per line. Required fields:
+
+- event_at: ISO-8601 timestamp including timezone
+- event_type: one of online, offline, call_started, call_ended, last_active
+- subject_ref: pseudonymous user reference
+- consent_record_id: reference to the consent record
+- consent_granted: must be boolean true
+
+A synthetic sample is included at samples/demo_events.jsonl. Import it to smoke-test the database:
+
+    python3 scripts/import_consent_events.py samples/demo_events.jsonl --source-app demo
+
+View imported events:
+
+    python3 scripts/show_events.py
+
+Filter by pseudonymous subject:
+
+    python3 scripts/show_events.py --subject demo-user-001
+
+The importer validates the event shape and consent flag; it cannot independently prove that the source app obtained valid consent. Your backend must enforce consent, authorization, retention, and revocation before exporting events.
+
+## View screenshot records
 
     python3 scripts/show_log.py
 
-Captures are stored locally under data/sessions/ and metadata in data/activity_log.sqlite3. The data/ directory is excluded from Git.
+Screenshots are stored under data/sessions/; SQLite metadata is stored in data/activity_log.sqlite3. The data/ directory is excluded from Git.
 
-## Limitations
+## Current limitations
 
-- A screenshot records only what is visible at that moment.
-- Sampling every 5 seconds cannot establish exact event start/end times between screenshots.
+- Screenshot capture records only visible pixels while the app is foregrounded.
+- Screenshot sampling cannot establish exact event start/end times.
+- The event importer accepts backend-exported events; a production backend/API integration is not included yet.
+- No app-specific OCR or extraction of third-party personal activity is included.
 - Screenshots may contain personal information. Keep them local, restrict access, and delete them when testing is complete.
-- No app-specific OCR, personal-status extraction, or automated monitoring of other users is included.
