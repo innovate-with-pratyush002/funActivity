@@ -21,8 +21,8 @@ def run_adb(serial, *args, binary=False):
 def foreground_package(serial):
     output = run_adb(serial, "shell", "dumpsys", "window", "windows")
     patterns = [
-        r"mCurrentFocus=Window\\{[^}]*\\s([\\w.]+)/",
-        r"mFocusedApp=ActivityRecord\\{[^}]*\\s([\\w.]+)/",
+        r"mCurrentFocus=Window\{[^}]*\s([\w.]+)/",
+        r"mFocusedApp=ActivityRecord\{[^}]*\s([\w.]+)/",
     ]
     for pattern in patterns:
         match = re.search(pattern, output)
@@ -92,7 +92,7 @@ def main():
                 print(f"Target app is not foreground (current: {current or 'unknown'}); skipped.")
             time.sleep(args.interval)
     except KeyboardInterrupt:
-        print(f"\\nSession stopped. Saved {count} screenshot(s) to {session_dir}.")
+        print(f"\nSession stopped. Saved {count} screenshot(s) to {session_dir}.")
     return 0
 
 
