@@ -1,12 +1,19 @@
 # funActivity
 
-A local, consent-based Android QA harness for testing one app inside a Google Play-enabled Android Emulator.
+A local, consent-based Android UI QA harness for a Google Play-enabled Android Emulator.
 
-## Scope and privacy
+## Current milestone
 
-This project is for controlled testing with your own test account and testers who have explicitly agreed to the test. It captures only while the selected app is foregrounded, only after you manually start a session, and stores data locally. It is not a hidden monitor and must not be used to build profiles of unrelated people or collect call/availability metadata without their specific informed consent.
+- Uses a configurable target package. The current sample config names Truecaller only as an example.
+- Checks that ADB can see a ready emulator/device.
+- Captures timestamped screenshots only while the configured app is the foreground app.
+- Stores capture metadata in a local SQLite database.
+- Provides a command to inspect the local capture log.
+- Does not upload screenshots or database records.
 
-The first milestone verifies ADB connectivity and records timestamped screenshots plus foreground-package metadata. App-specific OCR and parsing are not enabled until the target package and exact test-screen fields are confirmed.
+## Privacy boundary
+
+Use only your own test account and testers who have explicitly agreed to the QA session. Capture is manually started and visible in the terminal. This project is not a hidden monitor and does not extract or profile other people's online, last-seen, or call activity. Do not collect personal information without each affected person's specific, informed consent.
 
 ## Prerequisites
 
@@ -15,24 +22,32 @@ The first milestone verifies ADB connectivity and records timestamped screenshot
 - Android SDK Platform Tools (adb)
 - An Android Virtual Device created from a Google Play system image (Play Store included)
 
-Android Studio is optional; Android SDK command-line tools and the emulator package can be installed separately.
+Android Studio is optional; command-line Android SDK tools can be used.
 
-## Quick start
+## Setup
 
-1. Create/start a Google Play AVD and install your app from Play Store inside that emulator.
-2. In the emulator, sign in using a dedicated test account.
-3. Run:
+1. Start your Google Play AVD.
+2. Install the app from Play Store inside the emulator and sign in with a dedicated test account.
+3. From the repository root, verify ADB:
 
     python3 scripts/check_adb.py
 
-4. Start a visible, manually initiated capture session. Replace the package name with your app's Android package ID:
+4. Open config/app.json and confirm target_package. The sample value is com.truecaller.
+5. Start a manually initiated, authorized visible-screen QA session:
 
-    python3 scripts/capture_visible_session.py --package com.example.app --interval 5 --confirm-authorized-test-session
+    python3 scripts/capture_visible_session.py --confirm-authorized-test-session
 
-Press Ctrl+C to stop. Screenshots and a SQLite session log are saved under data/ and are not uploaded.
+The default interval is 5 seconds. To override it, use --interval 10. Press Ctrl+C to stop.
 
-## Current limitations
+## View captured records
 
-- The tool records only what is visibly rendered in the emulator; it cannot see hidden app state or prove exact event times between samples.
-- Screen changes, scrolling, pagination, network latency, and emulator sleep can affect observations.
-- This QA starter does not automate extraction of other users' presence, last-seen, or call metadata.
+    python3 scripts/show_log.py
+
+Captures are stored locally under data/sessions/ and metadata in data/activity_log.sqlite3. The data/ directory is excluded from Git.
+
+## Limitations
+
+- A screenshot records only what is visible at that moment.
+- Sampling every 5 seconds cannot establish exact event start/end times between screenshots.
+- Screenshots may contain personal information. Keep them local, restrict access, and delete them when testing is complete.
+- No app-specific OCR, personal-status extraction, or automated monitoring of other users is included.
