@@ -27,18 +27,26 @@ def run_adb(serial, *args, binary=False):
                           stderr=subprocess.PIPE, text=not binary).stdout
 
 
-def foreground_package(serial):
-    output = run_adb(serial, "shell", "dumpsys", "window", "windows")
-    patterns = [
-        r"mCurrentFocus=Window\{[^}]*\s([\w.]+)/",
-        r"mFocusedApp=ActivityRecord\{[^}]*\s([\w.]+)/",
-    ]
+def parse_foreground_package(output):
+    patterns = (
+        r"mCurrentFocus=Window\\{[^}]*?\\s([\\w.]+)/",
+        r"mFocusedApp=ActivityRecord\\{[^}]*?\\s([\\w.]+)/",
+        r"(?:topResumedActivity|mResumedActivity)=ActivityRecord\\{[^}]*?\\s(?:u\\d+\\s+)?([\\w.]+)/",
+    )
     for pattern in patterns:
         match = re.search(pattern, output)
         if match:
             return match.group(1)
     return None
 
+
+def foreground_package(serial):
+    window_output = run_adb(serial, "shell", "dumpsys", "window", "windows")
+    package = parse_foreground_package(window_output)
+    if package:
+        return package
+    activity_output = run_adb(serial, "shell", "dumpsys", "activity", "activities")
+    return parse_foreground_package(activity_output)
 
 def main():
     config = load_config()
@@ -71,6 +79,11 @@ def main():
     else:
         print(f"Expected exactly one ready device; found {len(devices)}. Use --serial.", file=sys.stderr)
         return 2
+
+    installed = run_adb(serial, "shell", "pm", "path", args.package)
+    if not installed.strip():
+        print(f"Target package {args.package!r} is not installed on {serial}.", file=sys.stderr)
+        return 3
 
     session_id = dt.datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
     session_dir = Path("data") / "sessions" / session_id
