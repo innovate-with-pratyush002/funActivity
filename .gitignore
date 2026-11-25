@@ -1,0 +1,6 @@
+# Local captures and databases may contain personal information
+data/
+__pycache__/
+*.py[cod]
+.venv/
+.env
