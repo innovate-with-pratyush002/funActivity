@@ -1,4 +1,5 @@
 import unittest
+from contextlib import closing
 from scripts.import_consent_events import event_fingerprint, parse_timestamp
 
 
@@ -23,40 +24,41 @@ class EventImportTests(unittest.TestCase):
         import sqlite3
         from scripts.import_consent_events import ensure_schema
 
-        with sqlite3.connect(":memory:") as db:
-            db.execute("""CREATE TABLE consented_activity_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                event_at TEXT NOT NULL,
-                event_type TEXT NOT NULL,
-                subject_ref TEXT NOT NULL,
-                consent_record_id TEXT NOT NULL,
-                source_app TEXT NOT NULL,
-                imported_at TEXT NOT NULL
-            )""")
-            row = (
-                "2026-11-25T10:00:00+05:30", "online", "subject-1",
-                "consent-1", "demo", "2026-11-25T05:00:00+00:00"
-            )
-            db.execute("""INSERT INTO consented_activity_events
-                (event_at,event_type,subject_ref,consent_record_id,source_app,imported_at)
-                VALUES(?,?,?,?,?,?)""", row)
-            db.execute("""INSERT INTO consented_activity_events
-                (event_at,event_type,subject_ref,consent_record_id,source_app,imported_at)
-                VALUES(?,?,?,?,?,?)""", row)
+        with closing(sqlite3.connect(":memory:")) as db:
+          with db:
+              db.execute("""CREATE TABLE consented_activity_events (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  event_at TEXT NOT NULL,
+                  event_type TEXT NOT NULL,
+                  subject_ref TEXT NOT NULL,
+                  consent_record_id TEXT NOT NULL,
+                  source_app TEXT NOT NULL,
+                  imported_at TEXT NOT NULL
+              )""")
+              row = (
+                  "2026-11-25T10:00:00+05:30", "online", "subject-1",
+                  "consent-1", "demo", "2026-11-25T05:00:00+00:00"
+              )
+              db.execute("""INSERT INTO consented_activity_events
+                  (event_at,event_type,subject_ref,consent_record_id,source_app,imported_at)
+                  VALUES(?,?,?,?,?,?)""", row)
+              db.execute("""INSERT INTO consented_activity_events
+                  (event_at,event_type,subject_ref,consent_record_id,source_app,imported_at)
+                  VALUES(?,?,?,?,?,?)""", row)
 
-            ensure_schema(db)
+              ensure_schema(db)
 
-            rows = db.execute(
-                "SELECT event_key FROM consented_activity_events"
-            ).fetchall()
-            self.assertEqual(len(rows), 1)
-            self.assertTrue(rows[0][0])
+              rows = db.execute(
+                  "SELECT event_key FROM consented_activity_events"
+              ).fetchall()
+              self.assertEqual(len(rows), 1)
+              self.assertTrue(rows[0][0])
 
-            with self.assertRaises(sqlite3.IntegrityError):
-                db.execute("""INSERT INTO consented_activity_events
-                    (event_at,event_type,subject_ref,consent_record_id,source_app,imported_at,event_key)
-                    VALUES(?,?,?,?,?,?,?)""",
-                    (*row[:5], row[5], rows[0][0]))
+              with self.assertRaises(sqlite3.IntegrityError):
+                  db.execute("""INSERT INTO consented_activity_events
+                      (event_at,event_type,subject_ref,consent_record_id,source_app,imported_at,event_key)
+                      VALUES(?,?,?,?,?,?,?)""",
+                      (*row[:5], row[5], rows[0][0]))
 
 
 
